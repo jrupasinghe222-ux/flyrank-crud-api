@@ -30,24 +30,31 @@ class UpdateTask(BaseModel):
     title: str | None = None
     done: bool | None = None
 
-@app.get("/")
+@app.get("/",summary="Show API information")
 def home():
     return { "name": "Task API", 
             "version": "1.0", 
-            "endpoints": ["/tasks"] 
-            }
+            "endpoints": [
+            "GET /tasks",
+            "GET /tasks/{id}",
+            "POST /tasks",
+            "PUT /tasks/{id}",
+            "DELETE /tasks/{id}",
+            "GET /health"
+            ]
+        }
 
-@app.get("/health")
+@app.get("/health",summary="Check API health")
 def health_check():
     return { "status": "ok" }
 
 # show all tasks
-@app.get("/tasks")
+@app.get("/tasks",summary="List all tasks")
 def get_all_tasks():
     return TASKS
 
 # show task by id
-@app.get("/tasks/{id}")
+@app.get("/tasks/{id}",summary="Get a task by ID")
 def get_one_task(id:int):
 
     for task in TASKS:
@@ -60,7 +67,7 @@ def get_one_task(id:int):
     )
 
 # create new task
-@app.post("/tasks")
+@app.post("/tasks",summary="Create a new task")
 def create_task(task: NewTask):
 
     if task.title is None or task.title.strip() == "":
@@ -85,7 +92,7 @@ def create_task(task: NewTask):
     )
 
 # update task
-@app.put("/tasks/{id}")
+@app.put("/tasks/{id}",summary="Update a task")
 def update_task(id: int, updated_data: UpdateTask):
 
     for task in TASKS:
@@ -117,7 +124,7 @@ def update_task(id: int, updated_data: UpdateTask):
     )
 
 # delete task
-@app.delete("/tasks/{id}")
+@app.delete("/tasks/{id}",summary="Delete a task")
 def delete_task(id: int):
 
     for task in TASKS:
