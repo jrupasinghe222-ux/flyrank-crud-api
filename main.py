@@ -107,7 +107,14 @@ def create_task(task: NewTask):
             content={"error": "Title is required"}
         )
 
-    new_id = max(task["id"] for task in TASKS) + 1
+    connection = get_db_connection()
+
+    cursor = connection.execute(
+        "INSERT INTO tasks(title,done) VALUES(?,?)",
+        (task.title,False)
+        )
+
+    new_id = cursor.lastrowid
 
     new_task = {
         "id": new_id,
@@ -115,7 +122,8 @@ def create_task(task: NewTask):
         "done": False
     }
 
-    TASKS.append(new_task)
+    connection.commit()
+    connection.close()
 
     return JSONResponse(
         status_code=201,
