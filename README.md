@@ -1,8 +1,8 @@
 # Task API
 
-A simple CRUD API built with FastAPI for managing a to-do list.
+A simple CRUD API built with FastAPI and SQLite for managing a to-do list.
 
-The API allows users to create, read, update, and delete tasks. Tasks are stored in memory, so the data resets whenever the server restarts.
+The API allows users to create, read, update, and delete tasks. Tasks are stored in a SQLite database, so the data persists even when the server is restarted.
 
 ## Features
 
@@ -12,8 +12,33 @@ The API allows users to create, read, update, and delete tasks. Tasks are stored
 * Update a task
 * Mark a task as done
 * Delete a task
+* Store tasks persistently using SQLite
 * Health check endpoint
 * Interactive Swagger UI documentation
+
+## Why SQLite?
+
+SQLite was chosen because it is simple, lightweight, and does not require a separate database server. The database is stored as a single file, which makes it a good choice for a small project like this while learning how an API interacts with a database.
+
+## Database
+
+The database is stored in a file called:
+
+```text
+tasks.db
+```
+
+The file is created automatically in the project directory when the application starts.
+
+The `tasks` table contains:
+
+| Column  | Type    | Description                                 |
+| ------- | ------- | ------------------------------------------- |
+| `id`    | INTEGER | Unique ID for each task and the primary key |
+| `title` | TEXT    | The task title                              |
+| `done`  | BOOLEAN | Whether the task has been completed         |
+
+If the table is empty when the application starts, three example tasks are automatically added.
 
 ## Installation and Running
 
@@ -32,7 +57,7 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Run the API:
+Start the API:
 
 ```powershell
 uvicorn main:app --reload
@@ -82,6 +107,24 @@ content-type: application/json
 {"id":4,"title":"Buy milk","done":false}
 ```
 
+## Example SQL Query
+
+The database can also be queried directly using SQLite. For example, this query returns all completed tasks:
+
+```sql
+SELECT * FROM tasks WHERE done = 1;
+```
+
+Other SQL operations were used to inspect, update, and delete task records directly from the database.
+
+## Database Viewer
+
+The SQLite database was opened using DB Browser for SQLite to inspect the `tasks` table and execute SQL queries manually.
+
+![Database Viewer](database.png)
+
+Changes made directly to the database are immediately reflected when retrieving tasks through the API.
+
 ## Swagger UI
 
 FastAPI automatically generates interactive API documentation using Swagger UI.
@@ -94,8 +137,4 @@ http://localhost:8000/docs
 
 You can test all CRUD operations directly from the Swagger interface.
 
-![alt text](image.png)
-
-## Notes
-
-Tasks are stored in an in-memory Python list rather than a database. This means any tasks created, updated, or deleted while the API is running will reset when the server restarts.
+![Swagger UI](image.png)
