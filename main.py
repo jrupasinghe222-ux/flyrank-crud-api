@@ -6,37 +6,41 @@ import sqlite3
 
 app = FastAPI()
 
-connection = sqlite3.connect("tasks.db")
+def get_db_connection():
+    connection = sqlite3.connect("tasks.db")
+    connection.row_factory = sqlite3.Row
+    return connection
 
-cursor =  connection.cursor()
+def initialize_db():
+    connection = get_db_connection()
 
-cursor.execute(
-    """
-    CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY,
-    title TEXT,
-    done BOOLEAN
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        done BOOLEAN
+        )
+        """
     )
-"""
-)
 
-example_tasks = [
-    ("Get goceries",False),
+    example_tasks = [
+    ("Get groceries",False),
     ("Write email",False),
     ("Water plants",False)
-]
+    ]
 
-cursor.execute("SELECT COUNT(*) FROM tasks")
-count = cursor.fetchone()[0]
+    count = connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
 
-if count == 0:
-    cursor.executemany("INSERT INTO tasks(title,done) VALUES (?,?)",
-                       example_tasks
-                   )
+    if count == 0:
+        connection.executemany("INSERT INTO tasks(title,done) VALUES (?,?)",
+                        example_tasks
+                    )
 
-connection.commit()
-connection.close()
+    connection.commit()
+    connection.close()
 
+initialize_db()
 
 class NewTask(BaseModel):
     title: str | None = None
@@ -66,19 +70,31 @@ def health_check():
 # show all tasks
 @app.get("/tasks",summary="List all tasks")
 def get_all_tasks():
-    return TASKS
+
+    connection = get_db_connection()
+    tasks = connection.execute("SELECT * FROM tasks").fetchall()
+    connection.close()
+
+    return [dict(task) for task in tasks]
 
 # show task by id
 @app.get("/tasks/{id}",summary="Get a task by ID")
 def get_one_task(id:int):
 
-    for task in TASKS:
-        if task["id"] == id:
-            return task
+    connection = get_db_connection()
+
+    task = connection.execute("SELECT * FROM tasks WHERE id=?",
+                       (id,)
+        ).fetchone()
+
+    connection.close()
+
+    if task is not None:
+        return dict(task)
 
     return JSONResponse(
         status_code=404,
-        content={"error": f"Task {id} not found"}
+        content={"error: Task not found"}
     )
 
 # create new task
@@ -151,4 +167,3 @@ def delete_task(id: int):
         status_code=404,
         content={"error": f"Task {id} not found"}
     )
-
