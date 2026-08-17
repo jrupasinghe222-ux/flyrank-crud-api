@@ -134,44 +134,82 @@ def create_task(task: NewTask):
 @app.put("/tasks/{id}",summary="Update a task")
 def update_task(id: int, updated_data: UpdateTask):
 
-    for task in TASKS:
-        if task["id"] == id:
+    if updated_data.title is None and updated_data.done is None:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "No update data provided"}
+                    )
 
-            if updated_data.title is None and updated_data.done is None:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": "No update data provided"}
+    if updated_data.title is not None and updated_data.title.strip() == "":
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "Title cannot be empty"}
+                    )
+
+    connection = get_db_connection()
+
+    task = connection.execute(
+        "SELECT * FROM tasks WHERE id=?",
+        (id,)
+    ).fetchone()
+
+    if task is None:
+        connection.close()
+
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+    
+
+    if updated_data.title is not None:
+         connection.execute(
+              "UPDATE tasks SET title=? WHERE id=?",
+              (updated_data.title,id)
+              )
+
+    if updated_data.done is not None:
+            connection.execute(
+                "UPDATE tasks SET done=? WHERE id=?",
+                (updated_data.done,id)
                 )
+            
+    connection.commit()
 
-            if updated_data.title is not None and updated_data.title.strip() == "":
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": "Title cannot be empty"}
-                )
+    updated_task = connection.execute(
+        "SELECT * FROM tasks WHERE id=?",
+        (id,)
+    ).fetchone()
 
-            if updated_data.title is not None:
-                task["title"] = updated_data.title
+    connection.close()
 
-            if updated_data.done is not None:
-                task["done"] = updated_data.done
-
-            return task
-
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
-    )
+    return dict(updated_task)
 
 # delete task
 @app.delete("/tasks/{id}",summary="Delete a task")
 def delete_task(id: int):
 
-    for task in TASKS:
-        if task["id"] == id:
-            TASKS.remove(task)
-            return Response(status_code=204)
+      connection = get_db_connection()
 
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
-    )
+      task = connection.execute(
+              "SELECT * FROM tasks WHERE id=?",
+              (id,)
+          ).fetchone()
+      
+      if task is None:
+              connection.close()
+      
+              return JSONResponse(
+                  status_code=404,
+                  content={"error": f"Task {id} not found"}
+              )
+
+      connection.execute("DELETE FROM tasks WHERE id=?",(id,))
+
+      connection.commit()
+      connection.close()
+
+      return Response(status_code=204)
+      
+
+    
