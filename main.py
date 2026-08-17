@@ -2,26 +2,41 @@ from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+import sqlite3
 
 app = FastAPI()
 
-TASKS = [
-    {
-        "id":1,
-        "title":"Get goceries",
-        "done":False
-    },
-    {
-        "id":2,
-        "title":"Write email",
-        "done":False
-    },
-    {
-         "id":3,
-        "title":"Water plants",
-        "done":False
-    }
+connection = sqlite3.connect("tasks.db")
+
+cursor =  connection.cursor()
+
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY,
+    title TEXT,
+    done BOOLEAN
+    )
+"""
+)
+
+example_tasks = [
+    ("Get goceries",False),
+    ("Write email",False),
+    ("Water plants",False)
 ]
+
+cursor.execute("SELECT COUNT(*) FROM tasks")
+count = cursor.fetchone()[0]
+
+if count == 0:
+    cursor.executemany("INSERT INTO tasks(title,done) VALUES (?,?)",
+                       example_tasks
+                   )
+
+connection.commit()
+connection.close()
+
 
 class NewTask(BaseModel):
     title: str | None = None
@@ -136,3 +151,4 @@ def delete_task(id: int):
         status_code=404,
         content={"error": f"Task {id} not found"}
     )
+
