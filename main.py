@@ -1,53 +1,16 @@
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-
-import sqlite3
+from models import UpdateTask, NewTask
+from repository import SQLiteRepository
+from service import TaskService
 
 app = FastAPI()
 
-def get_db_connection():
-    connection = sqlite3.connect("tasks.db")
-    connection.row_factory = sqlite3.Row
-    return connection
+repository = SQLiteRepository("tasks.db")
+repository.initialize_db()
 
-def initialize_db():
-    connection = get_db_connection()
+service = TaskService(repository)
 
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY,
-        title TEXT,
-        done BOOLEAN
-        )
-        """
-    )
-
-    example_tasks = [
-    ("Get groceries",False),
-    ("Write email",False),
-    ("Water plants",False)
-    ]
-
-    count = connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
-
-    if count == 0:
-        connection.executemany("INSERT INTO tasks(title,done) VALUES (?,?)",
-                        example_tasks
-                    )
-
-    connection.commit()
-    connection.close()
-
-initialize_db()
-
-class NewTask(BaseModel):
-    title: str | None = None
-
-class UpdateTask(BaseModel):
-    title: str | None = None
-    done: bool | None = None
 
 @app.get("/",summary="Show API information")
 def home():
@@ -70,61 +33,36 @@ def health_check():
 # show all tasks
 @app.get("/tasks",summary="List all tasks")
 def get_all_tasks():
-
-    connection = get_db_connection()
-    tasks = connection.execute("SELECT * FROM tasks").fetchall()
-    connection.close()
-
-    return [dict(task) for task in tasks]
+    return service.get_all_tasks()
 
 # show task by id
 @app.get("/tasks/{id}",summary="Get a task by ID")
 def get_one_task(id:int):
 
-    connection = get_db_connection()
+    task = service.get_task(id)
 
-    task = connection.execute("SELECT * FROM tasks WHERE id=?",
-                       (id,)
-        ).fetchone()
+    if task is None:
+          return JSONResponse(
+                  status_code=404,
+                  content={"error": "Task not found"}
+              )
+          
+    return task
 
-    connection.close()
-
-    if task is not None:
-        return dict(task)
-
-    return JSONResponse(
-        status_code=404,
-        content={"error: Task not found"}
-    )
+    
 
 # create new task
 @app.post("/tasks",summary="Create a new task")
 def create_task(task: NewTask):
 
-    if task.title is None or task.title.strip() == "":
+    new_task = service.create_task(task.title)
+
+    if new_task is None:
         return JSONResponse(
             status_code=400,
             content={"error": "Title is required"}
         )
-
-    connection = get_db_connection()
-
-    cursor = connection.execute(
-        "INSERT INTO tasks(title,done) VALUES(?,?)",
-        (task.title,False)
-        )
-
-    new_id = cursor.lastrowid
-
-    new_task = {
-        "id": new_id,
-        "title": task.title,
-        "done": False
-    }
-
-    connection.commit()
-    connection.close()
-
+    
     return JSONResponse(
         status_code=201,
         content=new_task
@@ -134,82 +72,43 @@ def create_task(task: NewTask):
 @app.put("/tasks/{id}",summary="Update a task")
 def update_task(id: int, updated_data: UpdateTask):
 
-    if updated_data.title is None and updated_data.done is None:
-                    return JSONResponse(
-                        status_code=400,
-                        content={"error": "No update data provided"}
-                    )
+    result = service.update_task(
+        id,
+        updated_data.title,
+        updated_data.done
+    )
 
-    if updated_data.title is not None and updated_data.title.strip() == "":
-                    return JSONResponse(
-                        status_code=400,
-                        content={"error": "Title cannot be empty"}
-                    )
+    if result == "empty":
+        return JSONResponse(
+            status_code=400,
+            content={"error": "No update data provided"}
+        )
 
-    connection = get_db_connection()
+    if result == "invalid_title":
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Title cannot be empty"}
+        )
 
-    task = connection.execute(
-        "SELECT * FROM tasks WHERE id=?",
-        (id,)
-    ).fetchone()
-
-    if task is None:
-        connection.close()
-
+    if result == "not_found":
         return JSONResponse(
             status_code=404,
             content={"error": f"Task {id} not found"}
         )
+
+    return result
     
-
-    if updated_data.title is not None:
-         connection.execute(
-              "UPDATE tasks SET title=? WHERE id=?",
-              (updated_data.title,id)
-              )
-
-    if updated_data.done is not None:
-            connection.execute(
-                "UPDATE tasks SET done=? WHERE id=?",
-                (updated_data.done,id)
-                )
-            
-    connection.commit()
-
-    updated_task = connection.execute(
-        "SELECT * FROM tasks WHERE id=?",
-        (id,)
-    ).fetchone()
-
-    connection.close()
-
-    return dict(updated_task)
 
 # delete task
 @app.delete("/tasks/{id}",summary="Delete a task")
 def delete_task(id: int):
 
-      connection = get_db_connection()
+    deleted = service.delete_task(id)
 
-      task = connection.execute(
-              "SELECT * FROM tasks WHERE id=?",
-              (id,)
-          ).fetchone()
-      
-      if task is None:
-              connection.close()
-      
-              return JSONResponse(
-                  status_code=404,
-                  content={"error": f"Task {id} not found"}
-              )
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
 
-      connection.execute("DELETE FROM tasks WHERE id=?",(id,))
-
-      connection.commit()
-      connection.close()
-
-      return Response(status_code=204)
-      
-
-    
+    return Response(status_code=204)
