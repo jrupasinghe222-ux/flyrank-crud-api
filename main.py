@@ -3,10 +3,14 @@ from fastapi.responses import JSONResponse
 from models import UpdateTask, NewTask
 from repository import SQLiteRepository
 from service import TaskService
+import os
 
 app = FastAPI()
 
-repository = SQLiteRepository("tasks.db")
+database_path = os.getenv("DATABASE_PATH", "tasks.db")
+
+repository = SQLiteRepository(database_path)
+
 repository.initialize_db()
 
 service = TaskService(repository)
