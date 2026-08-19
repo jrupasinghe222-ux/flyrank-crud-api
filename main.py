@@ -4,8 +4,11 @@ from models import UpdateTask, NewTask
 from repository import SQLiteRepository
 from service import TaskService
 import os
+from dotenv import load_dotenv
 
 app = FastAPI()
+
+load_dotenv()
 
 database_path = os.getenv("DATABASE_PATH", "tasks.db")
 

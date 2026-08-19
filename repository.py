@@ -1,4 +1,5 @@
 import sqlite3
+import os
 
 class SQLiteRepository:
     def __init__(self,database_path):
@@ -10,6 +11,7 @@ class SQLiteRepository:
         return connection
 
     def initialize_db(self):
+        os.makedirs(os.path.dirname(self.database_path), exist_ok=True)
         connection = self.get_connection()
 
         connection.execute(
@@ -97,14 +99,14 @@ class SQLiteRepository:
                     (done,id)
                 )
 
-        connection.commit
+        connection.commit()
 
         updated_task = connection.execute(
                 "SELECT * FROM tasks WHERE id=?",
                 (id,)
             ).fetchone()
         
-        connection.close
+        connection.close()
 
         if updated_task is None:
             return None
