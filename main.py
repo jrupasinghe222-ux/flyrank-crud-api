@@ -216,6 +216,20 @@ def profile(authorization: str | None = Header(default=None)):
                             content={"error": "Access token required"}
                         )
 
-    return{
-        "message": "Access token received"
-    }
+    try:
+        supabase_response = supabase.auth.get_user(token)
+    except AuthApiError:
+        return JSONResponse(
+                status_code=401,
+                content={"error": "Invalid or expired token"}
+            )
+
+    user = supabase_response.user
+    return JSONResponse(
+                status_code=200,
+                content= {
+                    "id": user.id,
+                    "email": user.email,
+                    "created_at":str(user.created_at)
+                }
+    )
