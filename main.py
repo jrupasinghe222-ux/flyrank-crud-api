@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Header
 from fastapi.responses import JSONResponse
-from models import UpdateTask, NewTask
+from models import UpdateTask, NewTask, AuthCredentials
 from repository import SQLiteRepository
 from service import TaskService
 from supabase import create_client
 import os
 from dotenv import load_dotenv
+from supabase_auth.errors import AuthApiError
 
 app = FastAPI()
 
@@ -22,8 +23,6 @@ repository.initialize_db()
 service = TaskService(repository)
 
 supabase = create_client(supabase_url,supabase_key)
-
-print("Server running and connected to Supabase")
 
 
 @app.get("/",summary="Show API information")
@@ -126,3 +125,97 @@ def delete_task(id: int):
         )
 
     return Response(status_code=204)
+
+@app.post("/auth/signup",summary="Create a new account")
+def signup(credentials:AuthCredentials):
+
+    if credentials.email is None or credentials.password is None or credentials.password.strip() == "" or credentials.email.strip()=="":
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Email or Password cannot be empty"}
+        )
+
+    try:
+        supabase_response = supabase.auth.sign_up(
+                {
+                    "email":credentials.email,
+                    "password":credentials.password
+                }
+            )
+    except AuthApiError:
+            return JSONResponse(
+            status_code=400,
+            content={"error": "Signup failed"}
+            )
+
+    return JSONResponse(
+                status_code=201,
+                content= supabase_response.user.model_dump(mode="json")
+            )
+
+
+@app.post("/auth/login",summary="Login to existing account")
+def login(credentials:AuthCredentials):
+
+    if credentials.email is None or credentials.password is None or credentials.password.strip() == "" or credentials.email.strip()=="":
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Email or Password cannot be empty"}
+        )
+
+    try:
+        supabase_response = supabase.auth.sign_in_with_password(
+                {
+                    "email":credentials.email,
+                    "password":credentials.password
+                }
+            )
+    except AuthApiError as e:
+            print(str(e))
+            return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid login credentials"}
+            )
+
+    return JSONResponse(
+                status_code=200,
+                content= {
+                    "access_token": supabase_response.session.access_token,
+                    "refresh_token": supabase_response.session.refresh_token
+                }
+            )
+
+
+@app.get("/public/info")
+def info():
+    return JSONResponse(
+            status_code=200,
+            content={"message": "Welcome stranger! This info is public."}
+        )
+
+@app.get("/protected/profile")
+def profile(authorization: str | None = Header(default=None)):
+
+    if authorization is None:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    if not authorization.startswith("Bearer "):
+        return JSONResponse(
+                    status_code=401,
+                    content={"error": "Access token required"}
+                )
+
+    token = authorization.removeprefix("Bearer ")
+
+    if token.strip() == "":
+        return JSONResponse(
+                            status_code=401,
+                            content={"error": "Access token required"}
+                        )
+
+    return{
+        "message": "Access token received"
+    }
