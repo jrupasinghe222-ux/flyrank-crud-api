@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from models import UpdateTask, NewTask
 from repository import SQLiteRepository
 from service import TaskService
+from supabase import create_client
 import os
 from dotenv import load_dotenv
 
@@ -11,12 +12,18 @@ app = FastAPI()
 load_dotenv()
 
 database_path = os.getenv("DATABASE_PATH", "tasks.db")
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY") 
 
 repository = SQLiteRepository(database_path)
 
 repository.initialize_db()
 
 service = TaskService(repository)
+
+supabase = create_client(supabase_url,supabase_key)
+
+print("Server running and connected to Supabase")
 
 
 @app.get("/",summary="Show API information")
