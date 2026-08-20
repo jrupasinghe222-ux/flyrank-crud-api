@@ -26,9 +26,12 @@ service = TaskService(repository)
 
 supabase = create_client(supabase_url,supabase_key)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
-def get_current_user(credentials:HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(credentials:HTTPAuthorizationCredentials | None = Depends(security)):
+
+    if credentials is None or not credentials.credentials.strip():
+        raise HTTPException(status_code=401, detail="Access token required")
     
     token = credentials.credentials
     
