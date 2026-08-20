@@ -209,3 +209,6 @@ http://localhost:8000/docs
 The full CRUD API can be tested directly through the Swagger interface.
 
 ![Swagger UI](image.png)
+
+
+![Routes with Auth](Auth.png)

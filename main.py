@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Response, Header, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from models import UpdateTask, NewTask, AuthCredentials
 from repository import SQLiteRepository
 from service import TaskService
@@ -25,26 +26,11 @@ service = TaskService(repository)
 
 supabase = create_client(supabase_url,supabase_key)
 
-def get_current_user(authorization: str | None = Header(default=None)):
-    if authorization is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Access token required"
-            )
+security = HTTPBearer()
+
+def get_current_user(credentials:HTTPAuthorizationCredentials = Depends(security)):
     
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-                    status_code=401,
-                    detail="Access token required"
-                    )
-    
-    token = authorization.removeprefix("Bearer ")
-    
-    if token.strip() == "":
-        raise HTTPException(
-                status_code=401,
-                detail="Access token required"
-        )
+    token = credentials.credentials
     
     try:
         supabase_response = supabase.auth.get_user(token)
