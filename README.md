@@ -46,7 +46,17 @@ SQLite Repository
 SQLite Database
 ```
 
-`main.py` contains the FastAPI routes, application configuration, Supabase client setup, and authentication dependency.
+`main.py` creates the FastAPI application and registers its routers and exception handler.
+
+`src/routes/` contains endpoints grouped by purpose: task operations, authentication, protected endpoints, general information, and task extraction.
+
+`src/dependencies.py` loads environment configuration and creates the shared repository, task service, and Supabase client.
+
+`src/auth.py` contains the reusable authentication dependency used to verify access tokens.
+
+`src/exception_handlers.py` handles request-validation errors, returning 400 for invalid task-extraction requests while preserving FastAPI's default behavior for other routes.
+
+`src/llm/schema.py` defines the task-extraction output models.
 
 `service.py` contains the application logic and task validation.
 
@@ -368,7 +378,7 @@ Authorization: Bearer <access_token>
 
 ### Swagger UI Screenshot
 
-![Swagger UI](Auth.png)
+![Swagger UI](images/Auth.png)
 
 ## Example SQL Query
 
@@ -386,7 +396,7 @@ Other SQL operations were also used to inspect, update, and delete task records.
 
 The SQLite database was opened using DB Browser for SQLite to inspect the `tasks` table and execute SQL queries manually.
 
-![Database Viewer](database.png)
+![Database Viewer](images/database.png)
 
 ## Security
 
