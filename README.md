@@ -113,19 +113,11 @@ If the table is empty when the application starts, three example tasks are autom
 
 Application configuration is stored using environment variables.
 
-The project uses a local `.env` file containing:
-
-```text
-DATABASE_PATH=./data/tasks.db
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_publishable_or_anon_key
-```
-
 Create your local `.env` file using `.env.example` as a template.
 
 ### LLM configuration
 
-The application can switch between local and hosted models that support the same API format by changing LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL, without modifying the Python code.
+The application can switch between local and hosted models that support the same API format by changing `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`, without modifying the Python code.
 
 ### Supabase setup
 
