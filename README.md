@@ -233,6 +233,51 @@ This shows that task data survives application restarts and container removal be
 | GET    | `/public/info`         | Return public information                     | No                      |
 | GET    | `/protected/profile`   | Return authenticated user profile information | Yes                     |
 | GET    | `/protected/dashboard` | Return protected dashboard information        | Yes                     |
+| POST | `/extract_tasks` | Extract tasks from text | No |
+## Task Extraction
+
+`POST /extract_tasks` accepts text and returns a list of tasks containing a title and completion status.
+
+### Valid request
+
+Run in Windows PowerShell:
+
+```powershell
+curl.exe --% -i -X POST http://localhost:8000/extract_tasks -H "Content-Type: application/json" -d "{\"text\":\"I watered the plants. I need to feed the cat.\"}"
+```
+
+Expected status: `200 OK`
+
+```json
+{
+  "tasks": [
+    {"title": "Water plants", "done": true},
+    {"title": "Feed cat", "done": false}
+  ]
+}
+```
+
+### Invalid request
+
+Run in Windows PowerShell:
+
+```powershell
+curl.exe --% -i -X POST http://localhost:8000/extract_tasks -H "Content-Type: application/json" -d "{\"text\":\"\"}"
+```
+
+Expected status: `400 Bad Request`
+
+```json
+{
+  "detail": [
+    {
+      "field": "text",
+      "message": "String should have at least 1 character"
+    }
+  ]
+}
+```
+
 
 ## Authentication Example
 

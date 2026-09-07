@@ -1,22 +1,49 @@
-from fastapi import FastAPI, Response, Header, HTTPException, Depends
+from fastapi import FastAPI, Response, Header, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from models import UpdateTask, NewTask, AuthCredentials
+from models import UpdateTask, NewTask, AuthCredentials, ExtractTasksRequest
 from repository import SQLiteRepository
 from service import TaskService
 from supabase import create_client
 import os
 from dotenv import load_dotenv
 from supabase_auth.errors import AuthApiError
+from src.llm.schema import ExtractTasksResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 
 
 app = FastAPI()
+
+@app.exception_handler(RequestValidationError)
+async def handle_request_validation(
+    request: Request,
+    exc: RequestValidationError,
+):
+    if request.method == "POST" and request.url.path == "/extract_tasks":
+        errors = [
+            {
+                "field": ".".join(
+                    str(part) for part in error["loc"] if part != "body"
+                ) or "body",
+                "message": error["msg"],
+            }
+            for error in exc.errors()
+        ]
+
+        return JSONResponse(
+            status_code=400,
+            content={"detail": errors},
+        )
+
+    return await request_validation_exception_handler(request, exc)
 
 load_dotenv()
 
 database_path = os.getenv("DATABASE_PATH", "tasks.db")
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY") 
+llm_stub = os.getenv("LLM_STUB", "0") == "1"
 
 repository = SQLiteRepository(database_path)
 
@@ -239,3 +266,21 @@ def dashboard(user = Depends(get_current_user)):
 def logout(user = Depends(get_current_user)):
     supabase.auth.sign_out()
     return Response(status_code=204)
+
+@app.post("/extract_tasks", response_model=ExtractTasksResponse)
+def extract_tasks(request:ExtractTasksRequest):
+
+    if llm_stub:
+        response = {
+        "tasks": [
+            {"title": "Water plants", "done": True},
+            {"title": "Feed cat", "done": False}
+        ]
+    } 
+        return response
+
+    return JSONResponse(
+                            status_code=503,
+                            content={"message":"Not yet implemented"}
+                        )
+
