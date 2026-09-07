@@ -123,6 +123,10 @@ SUPABASE_KEY=your_supabase_publishable_or_anon_key
 
 Create your local `.env` file using `.env.example` as a template.
 
+### LLM configuration
+
+The application can switch between local and hosted models that support the same API format by changing LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL, without modifying the Python code.
+
 ### Supabase setup
 
 1. Create a project at Supabase.
