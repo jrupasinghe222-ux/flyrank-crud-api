@@ -1,13 +1,15 @@
 import os
+import json
+from pydantic import ValidationError
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from models import ExtractTasksRequest
 from src.llm.schema import ExtractTasksResponse
-from src.llm.client import extract_tasks_with_llm
+from src.llm.llm_service import extract_validated_tasks
 
 router = APIRouter()
 
-@router.post("/extract_tasks")
+@router.post("/extract_tasks", response_model=ExtractTasksResponse)
 def extract_tasks(request:ExtractTasksRequest):
 
     llm_stub = os.getenv("LLM_STUB", "0") == "1"
@@ -21,5 +23,12 @@ def extract_tasks(request:ExtractTasksRequest):
     } 
         return response
 
-    return extract_tasks_with_llm(request.text)
+    try:
+        return extract_validated_tasks(request.text)
+    except (json.JSONDecodeError, ValidationError):
+        return JSONResponse(
+                          status_code=422,
+                          content={"error": "Could not produce valid task data after one repair attempt."}
+                      )
+
 

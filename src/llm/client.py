@@ -31,3 +31,30 @@ def extract_tasks_with_llm(text):
 )
 
     return response.choices[0].message.content
+
+
+def repair_tasks_with_llm(text, broken_output, validation_error):
+
+    instructions = f"""
+    Your previous answer was rejected for this reason:
+    {validation_error}
+
+    Return only corrected JSON matching the schema in the system instructions.
+    Do not include explanations or Markdown code fences.
+    """
+
+    messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": broken_output},
+            {"role": "user", "content": instructions},
+        ]
+    
+    response = client.chat.completions.create(
+    model=LLM_MODEL,
+    messages=messages,
+    temperature=0
+)
+    
+    return response.choices[0].message.content
+    
