@@ -288,6 +288,10 @@ Expected status: `400 Bad Request`
 }
 ```
 
+### Prompt testing observation
+
+The model added Markdown code fences in the first test despite the prompt requesting JSON only. Same inputs might produce different results on seperate instances.
+
 
 ## Authentication Example
 
