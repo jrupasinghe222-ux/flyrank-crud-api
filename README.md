@@ -287,6 +287,9 @@ Expected status: `400 Bad Request`
   ]
 }
 ```
+### Timeout and retry policy
+
+The model client uses a 30-second network timeout with SDK retries disabled. The application allows one retry for timeouts, 429 responses, and 5xx responses, using exponential backoff with jitter. Valid Retry-After values are followed up to five seconds; longer waits stop the retry. Responses with status 400, 401, or 403 are not retried.
 
 ### Prompt testing observation
 
