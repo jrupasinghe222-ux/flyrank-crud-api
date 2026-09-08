@@ -1,0 +1,2 @@
+{"input": "feed the cat", "output": "User Safety: safe\nResponse Safety: safe", "error": "Expecting value: line 1 column 1 (char 0)", "prompt_version": "extract-tasks-v1"}
+{"input": "I need to feed the cat", "output": "User Safety: safe\nResponse Safety: safe", "error": "Expecting value: line 1 column 1 (char 0)", "prompt_version": "extract-tasks-v1"}

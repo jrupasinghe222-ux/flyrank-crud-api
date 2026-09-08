@@ -1,0 +1,64 @@
+[
+  {
+    "text": "I submitted the expense report. I still need to call the plumber.",
+    "expected": {
+      "tasks": [
+        {"title": "Submit the expense report", "done": true},
+        {"title": "Call the plumber", "done": false}
+      ]
+    }
+  },
+  {
+    "text": "The train station is crowded. The sky looks grey.",
+    "expected": {
+      "tasks": []
+    }
+  },
+  {
+    "text": "I might have locked the back door already.",
+    "expected": {
+      "tasks": [
+        {"title": "Lock the back door", "done": false}
+      ]
+    }
+  },
+  {
+    "text": "Print the tickets and charge the camera battery.",
+    "expected": {
+      "tasks": [
+        {"title": "Print the tickets", "done": false},
+        {"title": "Charge the camera battery", "done": false}
+      ]
+    }
+  },
+  {
+    "text": "I have already renewed my library membership.",
+    "expected": {
+      "tasks": [
+        {"title": "Renew my library membership", "done": true}
+      ]
+    }
+  },
+  {
+    "text": "I haven't paid the electricity bill yet.",
+    "expected": {
+      "tasks": [
+        {"title": "Pay the electricity bill", "done": false}
+      ]
+    }
+  },
+  {
+    "text": "I want to learn Spanish.",
+    "expected": {
+      "tasks": [
+        {"title": "Learn Spanish", "done": false}
+      ]
+    }
+  },
+  {
+    "text": "Maybe something about that report. I'm not sure what.",
+    "expected": {
+      "tasks": []
+    }
+  }
+]

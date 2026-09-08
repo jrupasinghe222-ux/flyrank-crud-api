@@ -8,29 +8,11 @@ Supabase Auth is used for user authentication. Users can sign up, log in, receiv
 
 ## Features
 
-* Create a new task
-* View all tasks
-* View a task by ID
-* Update a task
-* Mark a task as done
-* Delete a task
+* Create, view, update, and delete tasks
 * Persistent task storage using SQLite
-* Repository and service architecture
-* Environment-based configuration
 * Dockerized FastAPI application
-* Docker Compose setup
-* Persistent Docker volume for the SQLite database
-* User signup using Supabase Auth
-* User login using email and password
-* JWT access and refresh tokens
-* Bearer-token authentication
-* Protected API endpoints
-* JWT verification through Supabase
-* Reusable FastAPI authentication dependency
-* User logout
-* Public and protected routes
-* Interactive Swagger UI
-* Swagger Bearer authentication using the Authorize button
+* User signup, login, and logout using Supabase Auth
+* Task extraction from text using an LLM
 
 ## Architecture
 
@@ -150,7 +132,7 @@ Make sure Docker Desktop is running.
 ### 1. Clone the repository
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/jrupasinghe222-ux/flyrank-crud-api
 ```
 
 Open the project directory.
@@ -159,7 +141,7 @@ Open the project directory.
 
 Copy `.env.example` to `.env`.
 
-Then add your own Supabase project URL and key.
+Add your Supabase project URL and key, configure the LLM provider settings, and set `LLM_ENABLED=true` and `LLM_STUB=0` to use real model calls.
 
 ### 3. Build and start the application
 
@@ -195,15 +177,16 @@ The SQLite database remains stored in the Docker volume.
 
 ## Docker Persistence
 
-SQLite data is stored in a Docker named volume mounted at `/data` inside the application container.
+SQLite data is stored in a Docker named volume mounted at `/app/data` inside the application container.
 
 ```text
 FastAPI Container
        ↓
-/data/tasks.db
+/app/data/tasks.db
        ↓
 Docker Named Volume
 ```
+When running locally from the project root, `DATABASE_PATH=./data/tasks.db` stores the database in the project's `data` folder. Inside Docker, the same relative path resolves to `/app/data/tasks.db`. Local and Docker runs use separate databases.
 
 Persistence was verified using the following process:
 
@@ -244,28 +227,124 @@ This shows that task data survives application restarts and container removal be
 | GET    | `/protected/profile`   | Return authenticated user profile information | Yes                     |
 | GET    | `/protected/dashboard` | Return protected dashboard information        | Yes                     |
 | POST | `/extract_tasks` | Extract tasks from text | No |
+
 ## Task Extraction
 
-`POST /extract_tasks` accepts text and returns a list of tasks containing a title and completion status.
+The task extraction endpoint turns written text into a list of tasks with simple titles and completion statuses. It identifies both completed and unfinished tasks, treats uncertain completion as unfinished, and ignores statements without clear tasks. The results are checked before being returned and are not automatically saved to the database.
 
-### Valid request
+### Example request
 
-Run in Windows PowerShell:
+With `LLM_ENABLED=true` and `LLM_STUB=0`, run in Windows PowerShell:
 
 ```powershell
-curl.exe --% -i -X POST http://localhost:8000/extract_tasks -H "Content-Type: application/json" -d "{\"text\":\"I watered the plants. I need to feed the cat.\"}"
+curl.exe --% -i -X POST http://localhost:8000/extract_tasks -H "Content-Type: application/json" -d "{\"text\":\"I submitted the expense report. I still need to call the plumber.\"}"
 ```
 
-Expected status: `200 OK`
+Recorded successful response: `200 OK`
 
 ```json
 {
   "tasks": [
-    {"title": "Water plants", "done": true},
-    {"title": "Feed cat", "done": false}
+    {"title": "Submit the expense report", "done": true},
+    {"title": "Call the plumber", "done": false}
   ]
 }
 ```
+
+The response above was observed during evaluation. Model-generated titles may vary between requests.
+
+### Job card
+
+**What it does:** Extracts tasks explicitly mentioned in text and returns a simple title and completion status for each task.
+
+**Input:** A required `text` field containing 1–2000 characters. Empty and whitespace-only input is rejected.
+
+**Output:** An object containing a `tasks` list. Each task contains a non-empty string `title` and a boolean `done`. When no tasks are found, the list is empty.
+
+**It must never:**
+
+* Invent tasks that are not mentioned in the input.
+* Break tasks into additional steps that were not mentioned.
+* Change the meaning when simplifying a title.
+* Mark a task as completed without clear evidence.
+* Return extra fields or raw model text to the caller.
+
+**When unsure:** Completion is set to `false` when it is unclear. Statements are excluded when it is unclear whether they describe a task. Explicit goals count as tasks, while situations alone do not.
+
+### Provider and model
+
+The evaluation used OpenRouter with `LLM_MODEL=openrouter/free`. This routes requests to available free models, so the evaluation was not performed using one fixed model. The model selected for each call is recorded in the usage log.
+
+The application uses three environment variables for provider configuration:
+
+| Variable | Purpose |
+| -------- | ------- |
+| `LLM_BASE_URL` | Provider API address |
+| `LLM_API_KEY` | Provider API key |
+| `LLM_MODEL` | Model or router identifier |
+
+Example OpenRouter configuration:
+
+```dotenv
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_API_KEY=your_openrouter_api_key
+LLM_MODEL=openrouter/free
+```
+
+The application can switch between local and hosted models that support the same API format by changing these variables without modifying the Python code. The connection script was also tested with a local Llama 3.1 model through Ollama.
+
+### Evaluation results
+
+Task extraction was evaluated using eight labelled cases with stub mode disabled. The cases cover completed tasks, unfinished tasks, uncertain completion, multiple tasks, goals, and text without clear tasks.
+
+| Item | Result |
+| ---- | ------ |
+| Evaluation date | 2026-09-08 |
+| Prompt version | `extract-tasks-v1` |
+| Scoring method | Exact response matching |
+| Cases passed | 7 out of 8 |
+| Score | 87.5% |
+
+In the failed case the title preserved the intended meaning, but the wording difference was rejected by exact matching.
+
+With the API running, `LLM_ENABLED=true`, and `LLM_STUB=0`, run the evaluation from the project root:
+
+```powershell
+python evals/run.py
+```
+
+The script prints the result of each case, the expected and actual responses for mismatches, and the final score.
+
+### Usage logging and cost estimate
+
+Each model call records the prompt version, model, token usage, duration, attempt number, and repair information.
+
+Example log from the evaluation:
+
+```json
+{
+  "event": "llm_call",
+  "prompt_version": "extract-tasks-v1",
+  "model": "inclusionai/ling-3.0-flash-sante:free",
+  "input_tokens": 717,
+  "output_tokens": 57,
+  "duration_ms": 1358.58,
+  "attempt": 1,
+  "is_repair": false,
+  "repair_count": 0,
+  "response_received": true
+}
+```
+
+The eight evaluation requests produced nine model calls, including one repair and no network retries. Total usage was 5,751 input tokens and 2,093 output tokens.
+
+At the observed usage and repair rate, 10,000 requests per day would use approximately 7.19 million input tokens, 2.62 million output tokens, and 11,250 model calls, with an estimated $0 model API charge at free-model pricing, excluding hosting costs and subject to provider limits.
+
+This estimate is based on eight examples and does not imply that the free tier supports this request volume. Usage will vary with input length, model selection, output length, and the number of repairs and retries.
+
+### Future improvement
+
+The evaluation would be improved to accept equivalent task titles while still checking the action and completion status.
 
 ### Invalid request
 
@@ -287,14 +366,51 @@ Expected status: `400 Bad Request`
   ]
 }
 ```
+
+Invalid input is rejected before any model call.
+
+### Output validation and repair
+
+Model output is parsed and validated against the task extraction schema before it is returned. The parser handles JSON wrapped in Markdown code fences and introductory text before a JSON object.
+
+If parsing or validation fails, the application makes one repair request containing the rejected answer and validation error. The repaired answer is checked against the same schema.
+
+If the repair also fails, the endpoint returns `422 Unprocessable Entity`. The input, rejected output, error, and prompt version are recorded in `logs/quarantine.jsonl`. 
+
 ### Timeout and retry policy
 
-The model client uses a 30-second network timeout with SDK retries disabled. The application allows one retry for timeouts, 429 responses, and 5xx responses, using exponential backoff with jitter. Valid Retry-After values are followed up to five seconds; longer waits stop the retry. Responses with status 400, 401, or 403 are not retried.
+The model client uses a 30-second network timeout with SDK retries disabled. The application allows one retry for timeouts, 429 responses, and 5xx responses, using exponential backoff with jitter.
 
-### Prompt testing observation
+Valid Retry-After values are followed up to five seconds. Longer waits stop the retry. Responses with status 400, 401, or 403 are not retried.
 
-The model added Markdown code fences in the first test despite the prompt requesting JSON only. Same inputs might produce different results on seperate instances.
+The timeout applies to network operations rather than the complete endpoint duration. An extraction request can include an initial model call, one repair call, and up to one network retry for each call.
 
+### Stub mode and kill switch
+
+The following environment variables control task extraction:
+
+| Setting | Behavior |
+| ------- | -------- |
+| `LLM_ENABLED=false` | Returns 503 without calling the model |
+| `LLM_ENABLED=true` and `LLM_STUB=1` | Returns a fixed example response without calling the model |
+| `LLM_ENABLED=true` and `LLM_STUB=0` | Calls the configured model and validates its response |
+
+Restart the application after changing `.env` so the updated settings are loaded.
+
+### Error responses
+
+| Status | Meaning |
+| ------ | ------- |
+| 400 | Request input failed validation |
+| 422 | Model output remained invalid after one repair |
+| 502 | The provider rejected or could not complete the upstream request |
+| 503 | Task extraction is disabled, or the provider returned a rate-limit or server error after the retry policy stopped further attempts |
+| 504 | The model request timed out after the retry policy was exhausted |
+
+### Prompt testing observations
+
+The model added Markdown code fences during testing despite the prompt requesting JSON only. Repeated inputs also produced different results on separate calls.
+Some model responses contained safety labels instead of task data.
 
 ## Authentication Example
 
@@ -385,7 +501,7 @@ Authorization: Bearer <access_token>
 
 ### Swagger UI Screenshot
 
-![Swagger UI](images/Auth.png)
+![Swagger UI](images/Swagger_UI.png)
 
 ## Example SQL Query
 
@@ -426,9 +542,10 @@ A new developer should be able to run the application by:
 2. Create a Supabase project
 3. Copy .env.example to .env
 4. Add Supabase URL and publishable/anon key
-5. Run docker compose up --build
-6. Open http://localhost:8000/docs
-7. Sign up and log in
-8. Authorize Swagger using the returned JWT
-9. Test the API
+5. Configure LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL, then set LLM_ENABLED=true and LLM_STUB=0
+6. Run docker compose up --build
+7. Open http://localhost:8000/docs
+8. Sign up and log in
+9. Authorize Swagger using the returned JWT
+10. Test the API
 ```
